@@ -97,7 +97,7 @@ class MqttBridge:
     def stop(self):
         self.stop_event.set()
         if self.connected.is_set():
-            self.publish_status("offline")
+            self.publish_status("offline", allow_failure=True)
         self.client.loop_stop()
         self.client.disconnect()
 
@@ -107,21 +107,32 @@ class MqttBridge:
                 return
         raise RuntimeError("Stopping before MQTT connection became available")
 
-    def publish(self, topic, payload, retain=False):
+    def publish(self, topic, payload, retain=False, allow_failure=False):
         self.wait_until_connected()
         info = self.client.publish(topic, payload=payload, qos=1, retain=retain)
         if info.rc != mqtt.MQTT_ERR_SUCCESS:
-            raise RuntimeError(f"Failed to publish to {topic}: rc={info.rc}")
-        if not info.wait_for_publish(timeout=5):
-            raise RuntimeError(f"Timed out publishing to {topic}")
+            message = f"Failed to publish to {topic}: rc={info.rc}"
+            if allow_failure:
+                print(message, file=sys.stderr, flush=True)
+                return False
+            raise RuntimeError(message)
+        return True
 
-    def publish_status(self, payload):
-        self.publish(self.status_topic, payload, retain=True)
+    def publish_status(self, payload, allow_failure=False):
+        return self.publish(
+            self.status_topic,
+            payload,
+            retain=True,
+            allow_failure=allow_failure,
+        )
 
     def publish_birth_messages(self):
-        self.publish_status("online")
-        if self.discovery_enabled:
-            self.publish_discovery()
+        try:
+            self.publish_status("online", allow_failure=True)
+            if self.discovery_enabled:
+                self.publish_discovery()
+        except Exception as exc:
+            print(f"Failed to publish discovery data: {exc}", file=sys.stderr, flush=True)
 
     def discovery_payload(self, name, unique_id, unit, device_class, value_template):
         return {
