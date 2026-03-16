@@ -6,13 +6,17 @@ This container reads the TFA TFACO2 AirCO2ntrol meter from `/dev/hidraw0` and pu
 - `CO2/state` as JSON, for example `{"co2":612,"temperature":22.31,"humidity":41.0}`
 - `CO2/status` as retained `online` and `offline`
 
-## Configure
+It is intended for systems where the CO2 meter is available as a HID raw device and Docker Compose is installed.
+
+## Getting Started
+
+Clone the repository and create your local environment file:
 
 ```bash
 cp .env.example .env
 ```
 
-Set at least:
+Set at least these values in `.env`:
 
 - `MQTT_HOST`
 - `MQTT_USER`
@@ -20,10 +24,15 @@ Set at least:
 
 If your meter is not exposed as `/dev/hidraw0`, update `DEVICE_PATH` in `.env` and the device mapping in `docker-compose.yml`.
 
-## Run
+Start the container:
 
 ```bash
 docker compose up -d --build
+```
+
+Follow the logs:
+
+```bash
 docker compose logs -f
 ```
 
@@ -37,14 +46,7 @@ Discovery is enabled by default and creates three sensors under one device:
 
 You can disable discovery with `HA_DISCOVERY_ENABLED=false` if you prefer to define entities manually.
 
-## Deploy On `co2-monitor.home.lan`
-
-1. Stop the old service: `sudo systemctl disable --now co2mqtt.service`
-2. Copy this project to the host
-3. Create `.env` with the broker credentials currently stored in `/etc/default/co2mqtt`
-4. Start the container: `docker compose up -d --build`
-
-The Pi already has Docker and Docker Compose installed.
+Once the container is running and connected to your MQTT broker, Home Assistant should discover the device automatically if the MQTT integration is configured and discovery is enabled.
 
 ## Attribution
 
