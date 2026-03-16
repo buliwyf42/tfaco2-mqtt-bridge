@@ -31,7 +31,7 @@ If your meter is not exposed as `/dev/hidraw0`, update `DEVICE_PATH` in `.env` a
 
 ## Run From The Published Image
 
-The included `docker-compose.yml` uses the published image:
+The included `docker-compose.yml` uses the published image and reads its values from `.env`:
 
 ```bash
 docker compose up -d
@@ -66,10 +66,23 @@ services:
       context: .
       dockerfile: Dockerfile
     restart: unless-stopped
-    env_file:
-      - .env
+    environment:
+      MQTT_HOST: ${MQTT_HOST}
+      MQTT_PORT: ${MQTT_PORT:-1883}
+      MQTT_USER: ${MQTT_USER}
+      MQTT_PASS: ${MQTT_PASS}
+      MQTT_TOPIC_PREFIX: ${MQTT_TOPIC_PREFIX:-CO2}
+      HA_PREFIX: ${HA_PREFIX:-homeassistant}
+      HA_DISCOVERY_ENABLED: ${HA_DISCOVERY_ENABLED:-true}
+      DEVICE_ID: ${DEVICE_ID:-co2meter_tfaco2}
+      DEVICE_NAME: ${DEVICE_NAME:-TFA CO2 Meter}
+      DEVICE_MODEL: ${DEVICE_MODEL:-TFACO2 AirCO2ntrol}
+      DEVICE_MANUFACTURER: ${DEVICE_MANUFACTURER:-TFA}
+      MQTT_CLIENT_ID: ${MQTT_CLIENT_ID:-co2meter_tfaco2-bridge}
+      MQTT_KEEPALIVE: ${MQTT_KEEPALIVE:-60}
+      DEVICE_PATH: ${DEVICE_PATH:-/dev/hidraw0}
     devices:
-      - "/dev/hidraw0:/dev/hidraw0"
+      - "${DEVICE_PATH:-/dev/hidraw0}:${DEVICE_PATH:-/dev/hidraw0}"
 ```
 
 ## Compose Example With Published Image
@@ -79,10 +92,23 @@ services:
   tfaco2-mqtt:
     image: ghcr.io/buliwyf42/tfaco2-mqtt-bridge:latest
     restart: unless-stopped
-    env_file:
-      - .env
+    environment:
+      MQTT_HOST: ${MQTT_HOST}
+      MQTT_PORT: ${MQTT_PORT:-1883}
+      MQTT_USER: ${MQTT_USER}
+      MQTT_PASS: ${MQTT_PASS}
+      MQTT_TOPIC_PREFIX: ${MQTT_TOPIC_PREFIX:-CO2}
+      HA_PREFIX: ${HA_PREFIX:-homeassistant}
+      HA_DISCOVERY_ENABLED: ${HA_DISCOVERY_ENABLED:-true}
+      DEVICE_ID: ${DEVICE_ID:-co2meter_tfaco2}
+      DEVICE_NAME: ${DEVICE_NAME:-TFA CO2 Meter}
+      DEVICE_MODEL: ${DEVICE_MODEL:-TFACO2 AirCO2ntrol}
+      DEVICE_MANUFACTURER: ${DEVICE_MANUFACTURER:-TFA}
+      MQTT_CLIENT_ID: ${MQTT_CLIENT_ID:-co2meter_tfaco2-bridge}
+      MQTT_KEEPALIVE: ${MQTT_KEEPALIVE:-60}
+      DEVICE_PATH: ${DEVICE_PATH:-/dev/hidraw0}
     devices:
-      - "/dev/hidraw0:/dev/hidraw0"
+      - "${DEVICE_PATH:-/dev/hidraw0}:${DEVICE_PATH:-/dev/hidraw0}"
 ```
 
 ## Deployment
