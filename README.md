@@ -8,9 +8,14 @@ This container reads the TFA TFACO2 AirCO2ntrol meter from `/dev/hidraw0` and pu
 
 It is intended for systems where the CO2 meter is available as a HID raw device and Docker Compose is installed.
 
-## Getting Started
+## Run Options
 
-Create your local environment file:
+You can run this project in two ways:
+
+- Build it yourself from this repository
+- Use the prebuilt Docker image from GitHub Container Registry
+
+In both cases, create your local environment file first:
 
 ```bash
 cp .env.example .env
@@ -24,7 +29,9 @@ Set at least these values in `.env`:
 
 If your meter is not exposed as `/dev/hidraw0`, update `DEVICE_PATH` in `.env` and the device mapping in `docker-compose.yml`.
 
-Start the container with Docker Compose:
+## Run From The Published Image
+
+The included `docker-compose.yml` uses the published image:
 
 ```bash
 docker compose up -d
@@ -36,7 +43,36 @@ Follow the logs:
 docker compose logs -f
 ```
 
-## Docker Compose Example
+## Build And Run From Source
+
+If you want to build the container yourself from the local repository, use:
+
+```bash
+docker build -t tfaco2-mqtt-bridge .
+docker run -d \
+  --name tfaco2-mqtt \
+  --restart unless-stopped \
+  --env-file .env \
+  --device /dev/hidraw0:/dev/hidraw0 \
+  tfaco2-mqtt-bridge
+```
+
+Or with Docker Compose:
+
+```yaml
+services:
+  tfaco2-mqtt:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - .env
+    devices:
+      - "/dev/hidraw0:/dev/hidraw0"
+```
+
+## Compose Example With Published Image
 
 ```yaml
 services:
@@ -57,10 +93,24 @@ To deploy this project on a target host:
 2. Ensure Docker and Docker Compose are installed.
 3. Create `.env` from `.env.example` and fill in your MQTT broker credentials.
 4. Make sure the CO2 meter is available as `/dev/hidraw0`, or adjust `DEVICE_PATH` in `.env` and the device mapping in `docker-compose.yml`.
-5. Start the container:
+5. Choose one of these start methods:
+
+From the published image:
 
 ```bash
 docker compose up -d
+```
+
+From source:
+
+```bash
+docker build -t tfaco2-mqtt-bridge .
+docker run -d \
+  --name tfaco2-mqtt \
+  --restart unless-stopped \
+  --env-file .env \
+  --device /dev/hidraw0:/dev/hidraw0 \
+  tfaco2-mqtt-bridge
 ```
 
 6. Check the container logs:
