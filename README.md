@@ -10,7 +10,7 @@ It is intended for systems where the CO2 meter is available as a HID raw device 
 
 ## Getting Started
 
-Clone the repository and create your local environment file:
+Create your local environment file:
 
 ```bash
 cp .env.example .env
@@ -24,16 +24,29 @@ Set at least these values in `.env`:
 
 If your meter is not exposed as `/dev/hidraw0`, update `DEVICE_PATH` in `.env` and the device mapping in `docker-compose.yml`.
 
-Start the container:
+Start the container with Docker Compose:
 
 ```bash
-docker compose up -d --build
+docker compose up -d
 ```
 
 Follow the logs:
 
 ```bash
 docker compose logs -f
+```
+
+## Docker Compose Example
+
+```yaml
+services:
+  tfaco2-mqtt:
+    image: ghcr.io/buliwyf42/tfaco2-mqtt-bridge:latest
+    restart: unless-stopped
+    env_file:
+      - .env
+    devices:
+      - "/dev/hidraw0:/dev/hidraw0"
 ```
 
 ## Deployment
@@ -47,7 +60,7 @@ To deploy this project on a target host:
 5. Start the container:
 
 ```bash
-docker compose up -d --build
+docker compose up -d
 ```
 
 6. Check the container logs:
@@ -55,6 +68,25 @@ docker compose up -d --build
 ```bash
 docker compose logs -f
 ```
+
+## Environment Variables
+
+| Variable | Required | Default | Description |
+| --- | --- | --- | --- |
+| `MQTT_HOST` | Yes | none | Hostname or IP address of the MQTT broker. |
+| `MQTT_PORT` | No | `1883` | MQTT broker port. |
+| `MQTT_USER` | Yes | none | MQTT username. |
+| `MQTT_PASS` | Yes | none | MQTT password. |
+| `MQTT_CLIENT_ID` | No | `co2meter_tfaco2-bridge` | MQTT client ID used by the container. |
+| `MQTT_KEEPALIVE` | No | `60` | MQTT keepalive in seconds. |
+| `MQTT_TOPIC_PREFIX` | No | `CO2` | Prefix for published state and availability topics. |
+| `HA_PREFIX` | No | `homeassistant` | Prefix for Home Assistant MQTT discovery topics. |
+| `HA_DISCOVERY_ENABLED` | No | `true` | Enable or disable Home Assistant MQTT discovery publishing. |
+| `DEVICE_ID` | No | `co2meter_tfaco2` | Home Assistant device identifier. |
+| `DEVICE_NAME` | No | `TFA CO2 Meter` | Home Assistant device name. |
+| `DEVICE_MODEL` | No | `TFACO2 AirCO2ntrol` | Device model shown in Home Assistant. |
+| `DEVICE_MANUFACTURER` | No | `TFA` | Device manufacturer shown in Home Assistant. |
+| `DEVICE_PATH` | No | `/dev/hidraw0` | Path to the HID raw device exposed inside the container. |
 
 ## Home Assistant
 

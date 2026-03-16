@@ -1,8 +1,6 @@
 services:
   tfaco2-mqtt:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: ghcr.io/buliwyf42/tfaco2-mqtt-bridge:latest
     container_name: tfaco2-mqtt
     restart: unless-stopped
     env_file:
