@@ -3,7 +3,7 @@
 This container reads the TFA TFACO2 AirCO2ntrol meter from `/dev/hidraw0` and publishes:
 
 - Home Assistant MQTT discovery payloads
-- `CO2/state` as JSON, for example `{"co2":612,"temperature":22.31,"humidity":41.0}`
+- `CO2/state` as JSON, for example `{"co2":612,"temperature":22.3,"humidity":41.0}`
 - `CO2/status` as retained `online` and `offline`
 
 It is intended for systems where the CO2 meter is available as a HID raw device and Docker Compose is installed.
