@@ -36,6 +36,26 @@ Follow the logs:
 docker compose logs -f
 ```
 
+## Deployment
+
+To deploy this project on a target host:
+
+1. Copy the repository to the host.
+2. Ensure Docker and Docker Compose are installed.
+3. Create `.env` from `.env.example` and fill in your MQTT broker credentials.
+4. Make sure the CO2 meter is available as `/dev/hidraw0`, or adjust `DEVICE_PATH` in `.env` and the device mapping in `docker-compose.yml`.
+5. Start the container:
+
+```bash
+docker compose up -d --build
+```
+
+6. Check the container logs:
+
+```bash
+docker compose logs -f
+```
+
 ## Home Assistant
 
 Discovery is enabled by default and creates three sensors under one device:
