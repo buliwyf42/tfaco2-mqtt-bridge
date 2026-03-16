@@ -81,11 +81,11 @@ class Co2Meter:
                 if op == 0x50:
                     yield ("co2", self.values[0x50])
                 elif op == 0x42:
-                    yield ("temperature", round(self.values[0x42] / 16.0 - 273.15, 2))
+                    yield ("temperature", round(self.values[0x42] / 16.0 - 273.15, 1))
                 elif op == 0x44:
-                    yield ("humidity", round(self.values[0x44] / 100.0, 2))
+                    yield ("humidity", round(self.values[0x44] / 100.0, 1))
                 elif op == 0x41 and 0x44 not in self.values:
-                    yield ("humidity", round(self.values[0x41] / 100.0, 2))
+                    yield ("humidity", round(self.values[0x41] / 100.0, 1))
             except ValueError as exc:
                 print(exc, file=sys.stderr, flush=True)
             except OSError as exc:
@@ -126,9 +126,9 @@ def main():
             if key == "co2":
                 print(f"CO2: {value:4d}", flush=True)
             elif key == "temperature":
-                print(f"T: {value:0.2f}", flush=True)
+                print(f"T: {value:0.1f}", flush=True)
             elif key == "humidity":
-                print(f"RH: {value:0.2f}", flush=True)
+                print(f"RH: {value:0.1f}", flush=True)
     except KeyboardInterrupt:
         pass
     finally:
