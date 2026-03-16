@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 import atexit
-import fcntl
 import json
 import os
 import signal
@@ -9,34 +8,7 @@ import threading
 
 import paho.mqtt.client as mqtt
 
-
-KEY = [0xC4, 0xC6, 0xC0, 0x92, 0x40, 0x23, 0xDC, 0x96]
-HIDIOCSFEATURE_9 = 0xC0094806
-
-
-def decrypt(key, data):
-    cstate = [0x48, 0x74, 0x65, 0x6D, 0x70, 0x39, 0x39, 0x65]
-    shuffle = [2, 4, 0, 7, 1, 6, 5, 3]
-    phase1 = [0] * 8
-    for i, o in enumerate(shuffle):
-        phase1[o] = data[i]
-    phase2 = [0] * 8
-    for i in range(8):
-        phase2[i] = phase1[i] ^ key[i]
-    phase3 = [0] * 8
-    for i in range(8):
-        phase3[i] = ((phase2[i] >> 3) | (phase2[(i - 1 + 8) % 8] << 5)) & 0xFF
-    ctmp = [0] * 8
-    for i in range(8):
-        ctmp[i] = ((cstate[i] >> 4) | (cstate[i] << 4)) & 0xFF
-    out = [0] * 8
-    for i in range(8):
-        out[i] = (0x100 + phase3[i] - ctmp[i]) & 0xFF
-    return out
-
-
-def checksum_ok(frame):
-    return frame[4] == 0x0D and (sum(frame[:3]) & 0xFF) == frame[3]
+from co2monitor import Co2Meter
 
 
 def env(name, default=None, required=False):
@@ -46,42 +18,16 @@ def env(name, default=None, required=False):
     return value
 
 
-class Co2Meter:
-    def __init__(self, device_path):
-        self.device_path = device_path
-        self.fp = None
-        self.values = {}
+def env_bool(name, default=False):
+    return env(name, str(default)).lower() in {"1", "true", "yes", "on"}
 
-    def open(self):
-        self.fp = open(self.device_path, "a+b", 0)
-        fcntl.ioctl(self.fp, HIDIOCSFEATURE_9, bytearray([0x00] + KEY))
 
-    def read_forever(self):
-        if self.fp is None:
-            self.open()
-
-        while True:
-            raw = self.fp.read(8)
-            if len(raw) != 8:
-                continue
-
-            data = list(raw)
-            frame = data if checksum_ok(data) else decrypt(KEY, data)
-            if not checksum_ok(frame):
-                continue
-
-            op = frame[0]
-            val = (frame[1] << 8) | frame[2]
-            self.values[op] = val
-
-            if op == 0x50:
-                yield ("co2", self.values[0x50])
-            elif op == 0x42:
-                yield ("temperature", round(self.values[0x42] / 16.0 - 273.15, 2))
-            elif op == 0x44:
-                yield ("humidity", round(self.values[0x44] / 100.0, 2))
-            elif op == 0x41 and 0x44 not in self.values:
-                yield ("humidity", round(self.values[0x41] / 100.0, 2))
+def env_int(name, default):
+    value = env(name, str(default))
+    try:
+        return int(value)
+    except ValueError as exc:
+        raise RuntimeError(f"Invalid integer value for {name}: {value}") from exc
 
 
 class MqttBridge:
@@ -94,14 +40,10 @@ class MqttBridge:
         self.device_name = env("DEVICE_NAME", "TFA CO2 Meter")
         self.device_model = env("DEVICE_MODEL", "TFACO2 AirCO2ntrol")
         self.device_manufacturer = env("DEVICE_MANUFACTURER", "TFA")
-        self.discovery_enabled = env("HA_DISCOVERY_ENABLED", "true").lower() in {
-            "1",
-            "true",
-            "yes",
-            "on",
-        }
+        self.discovery_enabled = env_bool("HA_DISCOVERY_ENABLED", True)
         self.state_topic = f"{self.topic_prefix}/state"
         self.status_topic = f"{self.topic_prefix}/status"
+        self.connect_retry_seconds = env_int("MQTT_CONNECT_RETRY_SECONDS", 5)
         self.client = mqtt.Client(
             client_id=env("MQTT_CLIENT_ID", f"{self.device_id}-bridge"),
             callback_api_version=mqtt.CallbackAPIVersion.VERSION2,
@@ -137,13 +79,20 @@ class MqttBridge:
 
     def connect(self):
         host = env("MQTT_HOST", required=True)
-        port = int(env("MQTT_PORT", "1883"))
-        keepalive = int(env("MQTT_KEEPALIVE", "60"))
+        port = env_int("MQTT_PORT", 1883)
+        keepalive = env_int("MQTT_KEEPALIVE", 60)
         self.client.reconnect_delay_set(min_delay=1, max_delay=30)
         self.client.connect_async(host, port, keepalive)
         self.client.loop_start()
-        if not self.connected.wait(timeout=15):
-            raise RuntimeError(f"Timed out connecting to MQTT broker {host}:{port}")
+        while not self.stop_event.is_set():
+            if self.connected.wait(timeout=self.connect_retry_seconds):
+                return
+            print(
+                f"Waiting for MQTT broker {host}:{port}...",
+                file=sys.stderr,
+                flush=True,
+            )
+        raise RuntimeError("Stopping before MQTT connection became available")
 
     def stop(self):
         self.stop_event.set()
@@ -163,6 +112,8 @@ class MqttBridge:
         info = self.client.publish(topic, payload=payload, qos=1, retain=retain)
         if info.rc != mqtt.MQTT_ERR_SUCCESS:
             raise RuntimeError(f"Failed to publish to {topic}: rc={info.rc}")
+        if not info.wait_for_publish(timeout=5):
+            raise RuntimeError(f"Timed out publishing to {topic}")
 
     def publish_status(self, payload):
         self.publish(self.status_topic, payload, retain=True)
@@ -223,23 +174,31 @@ class MqttBridge:
 
 def main():
     bridge = MqttBridge()
-    meter = Co2Meter(env("DEVICE_PATH", "/dev/hidraw0"))
+    meter = Co2Meter(
+        device_path=env("DEVICE_PATH", "/dev/hidraw0"),
+        retry_delay=float(env("DEVICE_RETRY_DELAY_SECONDS", "5")),
+    )
     latest = {}
+    last_payload = None
 
     def shutdown(signum=None, frame=None):
         bridge.stop()
+        meter.close()
         raise SystemExit(0)
 
     signal.signal(signal.SIGINT, shutdown)
     signal.signal(signal.SIGTERM, shutdown)
     atexit.register(bridge.stop)
+    atexit.register(meter.close)
 
     bridge.connect()
-    for key, value in meter.read_forever():
+    for key, value in meter.read_measurements():
         latest[key] = value
         payload = json.dumps(latest, separators=(",", ":"))
-        print(payload, flush=True)
-        bridge.publish(bridge.state_topic, payload)
+        if payload != last_payload:
+            print(payload, flush=True)
+            bridge.publish(bridge.state_topic, payload)
+            last_payload = payload
 
 
 if __name__ == "__main__":

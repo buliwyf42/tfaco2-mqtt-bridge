@@ -1,6 +1,13 @@
-#!/usr/bin/python3 -u
+#!/usr/bin/env python3
+import argparse
 import fcntl
 import sys
+import time
+
+
+KEY = [0xC4, 0xC6, 0xC0, 0x92, 0x40, 0x23, 0xDC, 0x96]
+HIDIOCSFEATURE_9 = 0xC0094806
+DEFAULT_DEVICE = "/dev/hidraw0"
 
 
 def decrypt(key, data):
@@ -24,52 +31,109 @@ def decrypt(key, data):
     return out
 
 
-def hd(d):
-    return " ".join("%02X" % e for e in d)
-
-
 def checksum_ok(frame):
     return frame[4] == 0x0D and (sum(frame[:3]) & 0xFF) == frame[3]
 
 
-if __name__ == "__main__":
-    # Key retrieved from /dev/random, guaranteed to be random ;)
-    key = [0xC4, 0xC6, 0xC0, 0x92, 0x40, 0x23, 0xDC, 0x96]
-    if len(sys.argv) != 2:
-        print("Please specify the device, usually /dev/hidraw0")
-        sys.exit(1)
+def hex_dump(data):
+    return " ".join(f"{value:02X}" for value in data)
 
-    fp = open(sys.argv[1], "a+b", 0)
-    HIDIOCSFEATURE_9 = 0xC0094806
-    set_report = bytearray([0x00] + key)
-    fcntl.ioctl(fp, HIDIOCSFEATURE_9, set_report)
 
-    values = {}
-    try:
+class Co2Meter:
+    def __init__(self, device_path=DEFAULT_DEVICE, retry_delay=5.0):
+        self.device_path = device_path
+        self.retry_delay = retry_delay
+        self.fp = None
+        self.values = {}
+
+    def open(self):
+        self.close()
+        self.fp = open(self.device_path, "a+b", 0)
+        fcntl.ioctl(self.fp, HIDIOCSFEATURE_9, bytearray([0x00] + KEY))
+
+    def close(self):
+        if self.fp is not None:
+            self.fp.close()
+            self.fp = None
+
+    def _read_frame(self):
+        raw = self.fp.read(8)
+        if len(raw) != 8:
+            raise OSError("short HID read")
+
+        data = list(raw)
+        frame = data if checksum_ok(data) else decrypt(KEY, data)
+        if not checksum_ok(frame):
+            raise ValueError(f"checksum error: {hex_dump(data)} => {hex_dump(frame)}")
+        return frame
+
+    def read_measurements(self):
         while True:
-            raw = fp.read(8)
-            if len(raw) != 8:
-                # Defensive: avoid index errors if the device returns a short frame.
-                continue
+            try:
+                if self.fp is None:
+                    self.open()
 
-            data = list(raw)
-            decrypted = data if checksum_ok(data) else decrypt(key, data)
-            if not checksum_ok(decrypted):
-                print(hd(data), " => ", hd(decrypted), "Checksum error")
-                continue
+                frame = self._read_frame()
+                op = frame[0]
+                val = (frame[1] << 8) | frame[2]
+                self.values[op] = val
 
-            op = decrypted[0]
-            val = decrypted[1] << 8 | decrypted[2]
-            values[op] = val
+                if op == 0x50:
+                    yield ("co2", self.values[0x50])
+                elif op == 0x42:
+                    yield ("temperature", round(self.values[0x42] / 16.0 - 273.15, 2))
+                elif op == 0x44:
+                    yield ("humidity", round(self.values[0x44] / 100.0, 2))
+                elif op == 0x41 and 0x44 not in self.values:
+                    yield ("humidity", round(self.values[0x41] / 100.0, 2))
+            except ValueError as exc:
+                print(exc, file=sys.stderr, flush=True)
+            except OSError as exc:
+                print(
+                    f"CO2 meter read failed on {self.device_path}: {exc}. "
+                    f"Retrying in {self.retry_delay:.1f}s...",
+                    file=sys.stderr,
+                    flush=True,
+                )
+                self.close()
+                time.sleep(self.retry_delay)
 
-            # Output data immediately when received.
-            if op == 0x50:  # CO2
-                print("CO2: %4i" % values[0x50], flush=True)
-            elif op == 0x42:  # Temperature
-                print("T: %2.2f" % (values[0x42] / 16.0 - 273.15), flush=True)
-            elif op == 0x44:  # Humidity (primary)
-                print("RH: %2.2f" % (values[0x44] / 100.0), flush=True)
-            elif op == 0x41 and 0x44 not in values:  # Fallback humidity
-                print("RH: %2.2f" % (values[0x41] / 100.0), flush=True)
+
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description="Read a TFA TFACO2 AirCO2ntrol CO2 meter from a hidraw device."
+    )
+    parser.add_argument(
+        "device",
+        nargs="?",
+        default=DEFAULT_DEVICE,
+        help=f"HID device path (default: {DEFAULT_DEVICE})",
+    )
+    parser.add_argument(
+        "--retry-delay",
+        type=float,
+        default=5.0,
+        help="Seconds to wait before retrying after device errors.",
+    )
+    return parser.parse_args()
+
+
+def main():
+    args = parse_args()
+    meter = Co2Meter(device_path=args.device, retry_delay=args.retry_delay)
+    try:
+        for key, value in meter.read_measurements():
+            if key == "co2":
+                print(f"CO2: {value:4d}", flush=True)
+            elif key == "temperature":
+                print(f"T: {value:0.2f}", flush=True)
+            elif key == "humidity":
+                print(f"RH: {value:0.2f}", flush=True)
     except KeyboardInterrupt:
         pass
+    finally:
+        meter.close()
+
+
+if __name__ == "__main__":
+    main()
