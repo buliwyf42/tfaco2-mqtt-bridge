@@ -6,8 +6,6 @@ This container reads the TFA TFACO2 AirCO2ntrol meter from `/dev/hidraw0` and pu
 - `CO2/state` as JSON, for example `{"co2":612,"temperature":22.31,"humidity":41.0}`
 - `CO2/status` as retained `online` and `offline`
 
-The current Raspberry Pi service uses `co2monitor.py | mosquitto_pub`, which is why MQTT failures currently break the sensor reader with `BrokenPipeError`. This project keeps the HID reader but moves MQTT and Home Assistant discovery into one Python process with one persistent broker connection.
-
 ## Configure
 
 ```bash
