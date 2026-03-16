@@ -1,0 +1,13 @@
+services:
+  tfaco2-mqtt:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: tfaco2-mqtt
+    restart: unless-stopped
+    env_file:
+      - .env
+    devices:
+      - "/dev/hidraw0:/dev/hidraw0"
+    environment:
+      DEVICE_PATH: /dev/hidraw0
