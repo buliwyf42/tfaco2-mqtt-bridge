@@ -47,3 +47,14 @@ You can disable discovery with `HA_DISCOVERY_ENABLED=false` if you prefer to def
 4. Start the container: `docker compose up -d --build`
 
 The Pi already has Docker and Docker Compose installed.
+
+## Attribution
+
+The low-level USB HID reader in `co2monitor.py` is based on the upstream
+`TFACO2AirCO2ntrol_CO2Meter` project by JsBergbau and the reverse-engineering
+work documented in Hackaday's "All your base are belong to us" log entry.
+
+Sources:
+
+- https://github.com/JsBergbau/TFACO2AirCO2ntrol_CO2Meter
+- https://hackaday.io/project/5301-reverse-engineering-a-low-cost-usb-co-monitor/log/17909-all-your-base-are-belong-to-us
