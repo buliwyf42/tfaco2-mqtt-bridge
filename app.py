@@ -5,6 +5,7 @@ import os
 import signal
 import sys
 import threading
+from pathlib import Path
 
 import paho.mqtt.client as mqtt
 
@@ -210,6 +211,7 @@ def main():
             print(payload, flush=True)
             bridge.publish(bridge.state_topic, payload)
             last_payload = payload
+            Path("/tmp/heartbeat").touch()
 
 
 if __name__ == "__main__":

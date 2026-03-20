@@ -20,3 +20,11 @@ services:
       DEVICE_PATH: ${DEVICE_PATH:-/dev/hidraw0}
     devices:
       - "${DEVICE_PATH:-/dev/hidraw0}:${DEVICE_PATH:-/dev/hidraw0}"
+    tmpfs:
+      - /tmp
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /tmp/heartbeat && test $(( $(date +%s) - $(date +%s -r /tmp/heartbeat) )) -lt 300"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
