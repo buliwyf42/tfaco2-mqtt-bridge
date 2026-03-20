@@ -86,12 +86,6 @@ services:
       - "${DEVICE_PATH:-/dev/hidraw0}:${DEVICE_PATH:-/dev/hidraw0}"
     tmpfs:
       - /tmp
-    healthcheck:
-      test: ["CMD-SHELL", "test -f /tmp/heartbeat && test $(( $(date +%s) - $(date +%s -r /tmp/heartbeat) )) -lt 300"]
-      interval: 60s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
 ```
 
 ## Compose Example With Published Image
@@ -120,12 +114,6 @@ services:
       - "${DEVICE_PATH:-/dev/hidraw0}:${DEVICE_PATH:-/dev/hidraw0}"
     tmpfs:
       - /tmp
-    healthcheck:
-      test: ["CMD-SHELL", "test -f /tmp/heartbeat && test $(( $(date +%s) - $(date +%s -r /tmp/heartbeat) )) -lt 300"]
-      interval: 60s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
 ```
 
 ## Deployment
@@ -186,9 +174,11 @@ docker compose logs -f
 
 ## Health Check
 
-The container writes a heartbeat file to `/tmp` after each successful MQTT publish. The included health check verifies this file was updated within the last 5 minutes, which detects stalls caused by a hung HID device, a lost MQTT connection, or a silent publish failure.
+A `HEALTHCHECK` is baked into the Docker image, so it is active for any container run from the published image or built from source — no additional compose configuration is required.
 
-`/tmp` is mounted as `tmpfs` so all writes go to RAM and do not wear the SD card.
+The container writes a heartbeat file to `/tmp` after each successful MQTT publish. The health check verifies this file was updated within the last 5 minutes, which detects stalls caused by a hung HID device, a lost MQTT connection, or a silent publish failure.
+
+`/tmp` is mounted as `tmpfs` in the compose examples so all writes go to RAM and do not wear the SD card. If you run the container with `docker run`, add `--tmpfs /tmp` for the same effect.
 
 **Current limitation:** the heartbeat is only updated when sensor values change. If readings are completely stable for more than 5 minutes the container will report `unhealthy` even though it is running correctly. In practice this is unlikely with a real CO2 meter, but be aware of it if you run the container without a device attached or in a very controlled environment.
 
