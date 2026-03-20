@@ -274,6 +274,16 @@ You can disable discovery with `HA_DISCOVERY_ENABLED=false` if you prefer to def
 
 Once the container is running and connected to your MQTT broker, Home Assistant should discover the device automatically if the MQTT integration is configured and discovery is enabled.
 
+## Security Notes
+
+**Container runs as root**
+
+The container process runs as root because `/dev/hidraw0` on the host is typically owned by root with group `input` and `660` permissions. A non-root container user would be denied access to the device without additional host-side configuration such as udev rules or matching group IDs. This is a known tradeoff. If you run this in a security-sensitive environment, configure your host to allow HID device access for a specific group and add a `USER` instruction to the Dockerfile accordingly.
+
+**MQTT credentials in environment variables**
+
+`MQTT_USER` and `MQTT_PASS` are passed as environment variables, which means they are visible in plain text via `docker inspect` on the host and via `/proc/<pid>/environ` inside the container. Anyone with Docker access on the host can read them. This is standard practice for containerised home setups but worth being aware of if your host is shared or accessible to others.
+
 ## Attribution
 
 The low-level USB HID reader in `co2monitor.py` is based on the upstream
