@@ -83,6 +83,14 @@ services:
       DEVICE_PATH: ${DEVICE_PATH:-/dev/hidraw0}
     devices:
       - "${DEVICE_PATH:-/dev/hidraw0}:${DEVICE_PATH:-/dev/hidraw0}"
+    tmpfs:
+      - /tmp
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /tmp/heartbeat && test $(( $(date +%s) - $(date +%s -r /tmp/heartbeat) )) -lt 300"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
 ```
 
 ## Compose Example With Published Image
@@ -109,6 +117,14 @@ services:
       DEVICE_PATH: ${DEVICE_PATH:-/dev/hidraw0}
     devices:
       - "${DEVICE_PATH:-/dev/hidraw0}:${DEVICE_PATH:-/dev/hidraw0}"
+    tmpfs:
+      - /tmp
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /tmp/heartbeat && test $(( $(date +%s) - $(date +%s -r /tmp/heartbeat) )) -lt 300"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
 ```
 
 ## Deployment
@@ -163,6 +179,18 @@ docker compose logs -f
 | `DEVICE_MODEL` | No | `TFACO2 AirCO2ntrol` | Device model shown in Home Assistant. |
 | `DEVICE_MANUFACTURER` | No | `TFA` | Device manufacturer shown in Home Assistant. |
 | `DEVICE_PATH` | No | `/dev/hidraw0` | Path to the HID raw device exposed inside the container. |
+
+## Health Check
+
+The container writes a heartbeat file to `/tmp` after each successful MQTT publish. The included health check verifies this file was updated within the last 5 minutes, which detects stalls caused by a hung HID device, a lost MQTT connection, or a silent publish failure.
+
+`/tmp` is mounted as `tmpfs` so all writes go to RAM and do not wear the SD card.
+
+Check container health status with:
+
+```bash
+docker inspect --format='{{.State.Health.Status}}' tfaco2-mqtt
+```
 
 ## Home Assistant
 
