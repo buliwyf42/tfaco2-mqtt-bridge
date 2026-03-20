@@ -188,6 +188,13 @@ Check container health status with:
 docker inspect --format='{{.State.Health.Status}}' tfaco2-mqtt
 ```
 
+To disable the health check, add the following to your compose service:
+
+```yaml
+healthcheck:
+  disable: true
+```
+
 ## Home Assistant
 
 Discovery is enabled by default and creates three sensors under one device:
