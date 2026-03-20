@@ -18,8 +18,16 @@ services:
       MQTT_CLIENT_ID: ${MQTT_CLIENT_ID:-co2meter_tfaco2-bridge}
       MQTT_KEEPALIVE: ${MQTT_KEEPALIVE:-60}
       DEVICE_PATH: ${DEVICE_PATH:-/dev/hidraw0}
+      # TLS (optional, uncomment to enable)
+      # MQTT_TLS_ENABLED: ${MQTT_TLS_ENABLED:-false}
+      # MQTT_TLS_INSECURE: ${MQTT_TLS_INSECURE:-false}
+      # MQTT_TLS_CA_CERT: ${MQTT_TLS_CA_CERT:-/certs/ca.crt}
+      # MQTT_TLS_CERTFILE: ${MQTT_TLS_CERTFILE:-/certs/client.crt}
+      # MQTT_TLS_KEYFILE: ${MQTT_TLS_KEYFILE:-/certs/client.key}
     devices:
       - "${DEVICE_PATH:-/dev/hidraw0}:${DEVICE_PATH:-/dev/hidraw0}"
+    # volumes:
+    #   - ./certs:/certs:ro
     tmpfs:
       - /tmp
     healthcheck:

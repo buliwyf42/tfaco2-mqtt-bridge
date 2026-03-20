@@ -82,8 +82,16 @@ services:
       MQTT_CLIENT_ID: ${MQTT_CLIENT_ID:-co2meter_tfaco2-bridge}
       MQTT_KEEPALIVE: ${MQTT_KEEPALIVE:-60}
       DEVICE_PATH: ${DEVICE_PATH:-/dev/hidraw0}
+      # TLS (optional, uncomment to enable)
+      # MQTT_TLS_ENABLED: ${MQTT_TLS_ENABLED:-false}
+      # MQTT_TLS_INSECURE: ${MQTT_TLS_INSECURE:-false}
+      # MQTT_TLS_CA_CERT: ${MQTT_TLS_CA_CERT:-/certs/ca.crt}
+      # MQTT_TLS_CERTFILE: ${MQTT_TLS_CERTFILE:-/certs/client.crt}
+      # MQTT_TLS_KEYFILE: ${MQTT_TLS_KEYFILE:-/certs/client.key}
     devices:
       - "${DEVICE_PATH:-/dev/hidraw0}:${DEVICE_PATH:-/dev/hidraw0}"
+    # volumes:
+    #   - ./certs:/certs:ro
     tmpfs:
       - /tmp
 ```
@@ -110,8 +118,16 @@ services:
       MQTT_CLIENT_ID: ${MQTT_CLIENT_ID:-co2meter_tfaco2-bridge}
       MQTT_KEEPALIVE: ${MQTT_KEEPALIVE:-60}
       DEVICE_PATH: ${DEVICE_PATH:-/dev/hidraw0}
+      # TLS (optional, uncomment to enable)
+      # MQTT_TLS_ENABLED: ${MQTT_TLS_ENABLED:-false}
+      # MQTT_TLS_INSECURE: ${MQTT_TLS_INSECURE:-false}
+      # MQTT_TLS_CA_CERT: ${MQTT_TLS_CA_CERT:-/certs/ca.crt}
+      # MQTT_TLS_CERTFILE: ${MQTT_TLS_CERTFILE:-/certs/client.crt}
+      # MQTT_TLS_KEYFILE: ${MQTT_TLS_KEYFILE:-/certs/client.key}
     devices:
       - "${DEVICE_PATH:-/dev/hidraw0}:${DEVICE_PATH:-/dev/hidraw0}"
+    # volumes:
+    #   - ./certs:/certs:ro
     tmpfs:
       - /tmp
 ```
@@ -171,6 +187,57 @@ docker compose logs -f
 | `DEVICE_PATH` | No | `/dev/hidraw0` | Path to the HID raw device exposed inside the container. |
 | `DEVICE_RETRY_DELAY_SECONDS` | No | `5` | Seconds to wait before retrying after a HID device error. |
 | `MQTT_CONNECT_RETRY_SECONDS` | No | `5` | Seconds to wait between MQTT broker connection attempts. |
+| `MQTT_TLS_ENABLED` | No | `false` | Enable TLS for the MQTT connection. |
+| `MQTT_TLS_INSECURE` | No | `false` | Encrypt traffic but skip broker certificate verification. |
+| `MQTT_TLS_CA_CERT` | No | none | Path inside the container to the CA certificate (e.g. `/certs/ca.crt`). |
+| `MQTT_TLS_CERTFILE` | No | none | Path inside the container to the client certificate for mutual TLS. |
+| `MQTT_TLS_KEYFILE` | No | none | Path inside the container to the client private key for mutual TLS. |
+
+## TLS
+
+TLS is disabled by default. Set `MQTT_TLS_ENABLED=true` and `MQTT_PORT=8883` in `.env` to enable it.
+
+Three scenarios are supported:
+
+**Encrypt only, no certificate verification**
+Protects against eavesdropping but not MITM. Useful for self-signed brokers where you do not have the CA certificate.
+
+```env
+MQTT_TLS_ENABLED=true
+MQTT_TLS_INSECURE=true
+MQTT_PORT=8883
+```
+
+No volume mount needed.
+
+**Server TLS with CA verification (self-signed broker)**
+Verifies the broker certificate against your own CA.
+
+```env
+MQTT_TLS_ENABLED=true
+MQTT_TLS_CA_CERT=/certs/ca.crt
+MQTT_PORT=8883
+```
+
+Place `ca.crt` in a local `certs/` folder alongside the compose file and uncomment the volume in `docker-compose.yml`:
+
+```yaml
+volumes:
+  - ./certs:/certs:ro
+```
+
+**Mutual TLS (client certificate authentication)**
+Both broker and client authenticate each other.
+
+```env
+MQTT_TLS_ENABLED=true
+MQTT_TLS_CA_CERT=/certs/ca.crt
+MQTT_TLS_CERTFILE=/certs/client.crt
+MQTT_TLS_KEYFILE=/certs/client.key
+MQTT_PORT=8883
+```
+
+Place all three files in `certs/` and uncomment the volume as above.
 
 ## Health Check
 

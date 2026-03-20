@@ -53,6 +53,13 @@ class MqttBridge:
         self.client.username_pw_set(
             env("MQTT_USER", required=True), env("MQTT_PASS", required=True)
         )
+        if env_bool("MQTT_TLS_ENABLED", False):
+            ca_cert = env("MQTT_TLS_CA_CERT") or None
+            certfile = env("MQTT_TLS_CERTFILE") or None
+            keyfile = env("MQTT_TLS_KEYFILE") or None
+            self.client.tls_set(ca_certs=ca_cert, certfile=certfile, keyfile=keyfile)
+            if env_bool("MQTT_TLS_INSECURE", False):
+                self.client.tls_insecure_set(True)
         self.client.will_set(self.status_topic, payload="offline", qos=1, retain=True)
         self.client.on_connect = self.on_connect
         self.client.on_disconnect = self.on_disconnect
