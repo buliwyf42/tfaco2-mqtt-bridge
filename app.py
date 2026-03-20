@@ -3,6 +3,7 @@ import atexit
 import json
 import os
 import signal
+import ssl
 import sys
 import threading
 from pathlib import Path
@@ -54,11 +55,13 @@ class MqttBridge:
             env("MQTT_USER", required=True), env("MQTT_PASS", required=True)
         )
         if env_bool("MQTT_TLS_ENABLED", False):
+            insecure = env_bool("MQTT_TLS_INSECURE", False)
             ca_cert = env("MQTT_TLS_CA_CERT") or None
             certfile = env("MQTT_TLS_CERTFILE") or None
             keyfile = env("MQTT_TLS_KEYFILE") or None
-            self.client.tls_set(ca_certs=ca_cert, certfile=certfile, keyfile=keyfile)
-            if env_bool("MQTT_TLS_INSECURE", False):
+            cert_reqs = ssl.CERT_NONE if insecure else None
+            self.client.tls_set(ca_certs=ca_cert, certfile=certfile, keyfile=keyfile, cert_reqs=cert_reqs)
+            if insecure:
                 self.client.tls_insecure_set(True)
         self.client.will_set(self.status_topic, payload="offline", qos=1, retain=True)
         self.client.on_connect = self.on_connect
