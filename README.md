@@ -54,6 +54,7 @@ docker run -d \
   --restart unless-stopped \
   --env-file .env \
   --device /dev/hidraw0:/dev/hidraw0 \
+  --tmpfs /tmp \
   tfaco2-mqtt-bridge
 ```
 
@@ -152,6 +153,7 @@ docker run -d \
   --restart unless-stopped \
   --env-file .env \
   --device /dev/hidraw0:/dev/hidraw0 \
+  --tmpfs /tmp \
   tfaco2-mqtt-bridge
 ```
 
