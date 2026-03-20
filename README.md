@@ -181,12 +181,16 @@ docker compose logs -f
 | `DEVICE_MODEL` | No | `TFACO2 AirCO2ntrol` | Device model shown in Home Assistant. |
 | `DEVICE_MANUFACTURER` | No | `TFA` | Device manufacturer shown in Home Assistant. |
 | `DEVICE_PATH` | No | `/dev/hidraw0` | Path to the HID raw device exposed inside the container. |
+| `DEVICE_RETRY_DELAY_SECONDS` | No | `5` | Seconds to wait before retrying after a HID device error. |
+| `MQTT_CONNECT_RETRY_SECONDS` | No | `5` | Seconds to wait between MQTT broker connection attempts. |
 
 ## Health Check
 
 The container writes a heartbeat file to `/tmp` after each successful MQTT publish. The included health check verifies this file was updated within the last 5 minutes, which detects stalls caused by a hung HID device, a lost MQTT connection, or a silent publish failure.
 
 `/tmp` is mounted as `tmpfs` so all writes go to RAM and do not wear the SD card.
+
+**Current limitation:** the heartbeat is only updated when sensor values change. If readings are completely stable for more than 5 minutes the container will report `unhealthy` even though it is running correctly. In practice this is unlikely with a real CO2 meter, but be aware of it if you run the container without a device attached or in a very controlled environment.
 
 Check container health status with:
 
