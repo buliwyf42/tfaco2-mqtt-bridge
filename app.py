@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-import atexit
 import json
 import os
 import signal
@@ -210,8 +209,6 @@ def main():
 
     signal.signal(signal.SIGINT, shutdown)
     signal.signal(signal.SIGTERM, shutdown)
-    atexit.register(bridge.stop)
-    atexit.register(meter.close)
 
     bridge.connect()
     for key, value in meter.read_measurements():
