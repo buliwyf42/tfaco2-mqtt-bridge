@@ -88,6 +88,7 @@ class Co2Meter:
                     yield ("humidity", round(self.values[0x41] / 100.0, 1))
             except ValueError as exc:
                 print(exc, file=sys.stderr, flush=True)
+                time.sleep(self.retry_delay)
             except OSError as exc:
                 print(
                     f"CO2 meter read failed on {self.device_path}: {exc}. "
