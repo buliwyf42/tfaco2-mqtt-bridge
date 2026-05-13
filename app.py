@@ -218,7 +218,7 @@ def main():
             print(payload, flush=True)
             bridge.publish(bridge.state_topic, payload)
             last_payload = payload
-            Path("/tmp/heartbeat").touch()
+        Path("/tmp/heartbeat").touch()
 
 
 if __name__ == "__main__":
