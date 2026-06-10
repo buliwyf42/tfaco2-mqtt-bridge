@@ -112,20 +112,26 @@ class MqttBridge:
         self.client.disconnect()
 
     def wait_until_connected(self):
-        while not self.stop_event.is_set():
-            if self.connected.wait(timeout=1):
-                return
-        raise RuntimeError("Stopping before MQTT connection became available")
+        # Checked before stop_event so that stop() can still publish the
+        # offline status after it has set stop_event.
+        while not self.connected.is_set():
+            if self.stop_event.is_set():
+                raise RuntimeError(
+                    "Stopping before MQTT connection became available"
+                )
+            self.connected.wait(timeout=1)
 
     def publish(self, topic, payload, retain=False, allow_failure=False):
-        self.wait_until_connected()
-        info = self.client.publish(topic, payload=payload, qos=1, retain=retain)
-        if info.rc != mqtt.MQTT_ERR_SUCCESS:
-            message = f"Failed to publish to {topic}: rc={info.rc}"
+        try:
+            self.wait_until_connected()
+            info = self.client.publish(topic, payload=payload, qos=1, retain=retain)
+            if info.rc != mqtt.MQTT_ERR_SUCCESS:
+                raise RuntimeError(f"Failed to publish to {topic}: rc={info.rc}")
+        except RuntimeError as exc:
             if allow_failure:
-                print(message, file=sys.stderr, flush=True)
+                print(exc, file=sys.stderr, flush=True)
                 return False
-            raise RuntimeError(message)
+            raise
         return True
 
     def publish_status(self, payload, allow_failure=False):
