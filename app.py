@@ -11,6 +11,9 @@ import paho.mqtt.client as mqtt
 
 from co2monitor import Co2Meter
 
+# Must match the path checked by the HEALTHCHECK in the Dockerfile.
+HEARTBEAT_FILE = Path("/tmp/heartbeat")
+
 
 def env(name, default=None, required=False):
     value = os.getenv(name, default)
@@ -224,7 +227,7 @@ def main():
             print(payload, flush=True)
             bridge.publish(bridge.state_topic, payload)
             last_payload = payload
-        Path("/tmp/heartbeat").touch()
+        HEARTBEAT_FILE.touch()
 
 
 if __name__ == "__main__":
