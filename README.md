@@ -243,7 +243,7 @@ Place all three files in `certs/` and uncomment the volume as above.
 
 A `HEALTHCHECK` is baked into the Docker image, so it is active for any container run from the published image or built from source — no additional compose configuration is required.
 
-The container writes a heartbeat file to `/tmp` after each successful HID read. The health check verifies this file was updated within the last 5 minutes, which detects stalls caused by a hung HID device, a lost MQTT connection, or a silent publish failure.
+The container writes a heartbeat file to `/tmp` after each decoded sensor reading. The health check verifies this file was updated within the last 5 minutes, which detects stalls caused by a hung HID device or a persistently garbled data stream. MQTT problems are caught indirectly: a failed publish crashes the bridge (and the restart policy restarts the container), and a lost broker connection stalls the loop — and with it the heartbeat — as soon as the next changed reading needs to be published. Only a broker outage during which readings never change at all goes unnoticed by the health check.
 
 `/tmp` is mounted as `tmpfs` in the compose examples so all writes go to RAM and do not wear the SD card. If you run the container with `docker run`, add `--tmpfs /tmp` for the same effect.
 
