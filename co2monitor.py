@@ -8,6 +8,10 @@ import time
 KEY = [0xC4, 0xC6, 0xC0, 0x92, 0x40, 0x23, 0xDC, 0x96]
 HIDIOCSFEATURE_9 = 0xC0094806
 DEFAULT_DEVICE = "/dev/hidraw0"
+# Consecutive checksum failures tolerated before the device is reopened.
+# A single corrupted frame is retried immediately; the blocking HID read
+# already limits the retry rate to the device's report rate.
+CHECKSUM_FAILURE_LIMIT = 5
 
 
 def decrypt(key, data):
@@ -68,12 +72,14 @@ class Co2Meter:
         return frame
 
     def read_measurements(self):
+        checksum_failures = 0
         while True:
             try:
                 if self.fp is None:
                     self.open()
 
                 frame = self._read_frame()
+                checksum_failures = 0
                 op = frame[0]
                 val = (frame[1] << 8) | frame[2]
                 self.values[op] = val
@@ -88,7 +94,18 @@ class Co2Meter:
                     yield ("humidity", round(self.values[0x41] / 100.0, 1))
             except ValueError as exc:
                 print(exc, file=sys.stderr, flush=True)
-                time.sleep(self.retry_delay)
+                checksum_failures += 1
+                if checksum_failures >= CHECKSUM_FAILURE_LIMIT:
+                    print(
+                        f"{checksum_failures} consecutive checksum errors on "
+                        f"{self.device_path}: reopening device and retrying "
+                        f"in {self.retry_delay:.1f}s...",
+                        file=sys.stderr,
+                        flush=True,
+                    )
+                    self.close()
+                    time.sleep(self.retry_delay)
+                    checksum_failures = 0
             except OSError as exc:
                 print(
                     f"CO2 meter read failed on {self.device_path}: {exc}. "
