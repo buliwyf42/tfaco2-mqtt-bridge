@@ -14,6 +14,12 @@ from co2monitor import Co2Meter
 # Must match the path checked by the HEALTHCHECK in the Dockerfile.
 HEARTBEAT_FILE = Path("/tmp/heartbeat")
 
+# Keys the Home Assistant discovery configs expect in every CO2/state payload.
+# Must match the sensors published by MqttBridge.publish_discovery(); the state
+# topic is only published once all of these have been read at least once, so HA
+# never renders a value_template against a partial object.
+STATE_KEYS = ("co2", "temperature", "humidity")
+
 
 def env(name, default=None, required=False):
     value = os.getenv(name, default)
@@ -220,13 +226,19 @@ def main():
     signal.signal(signal.SIGTERM, shutdown)
 
     bridge.connect()
+    required = set(STATE_KEYS)
     for key, value in meter.read_measurements():
         latest[key] = value
-        payload = json.dumps(latest, separators=(",", ":"))
-        if payload != last_payload:
-            print(payload, flush=True)
-            bridge.publish(bridge.state_topic, payload)
-            last_payload = payload
+        # Hold partial frames back until every expected metric has been read
+        # once, then always emit the complete object in a stable key order.
+        if required.issubset(latest):
+            payload = json.dumps(
+                {k: latest[k] for k in STATE_KEYS}, separators=(",", ":")
+            )
+            if payload != last_payload:
+                print(payload, flush=True)
+                bridge.publish(bridge.state_topic, payload)
+                last_payload = payload
         HEARTBEAT_FILE.touch()
 
 
